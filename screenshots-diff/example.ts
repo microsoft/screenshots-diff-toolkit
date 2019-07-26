@@ -7,14 +7,18 @@ const paths = {
   candidate: args[1],
   diff: args[2]
 };
+const threshold = parseFloat(args[3]);
 
-if (args.length !== 3) {
+const isInvalidArgs = args.length !== 4 || isNaN(threshold) || threshold < 0 || threshold > 1;
+if (isInvalidArgs) {
   logError(
-    "You must provide 3 arguments: baseline_path candidate_path result_path"
+    "You must provide 4 arguments: baseline_path candidate_path result_path threshold where threshold is between 0 and 1"
   );
   process.exit();
 }
 
-diffScreenshots(paths.baseline, paths.candidate, paths.diff).catch(err => {
-  logError(`** ERROR ** ${err}`);
-});
+diffScreenshots(paths.baseline, paths.candidate, paths.diff, threshold).catch(
+  err => {
+    logError(`** ERROR ** ${err}`);
+  }
+);

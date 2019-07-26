@@ -4,9 +4,15 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/microsoft/screenshots-diff-toolkit/screenshots-diff"
+    "url": "git+https://github.com/microsoft/screenshots-diff-toolkit/screenshots-diff",
+    "keywords": [
+      "image",
+      "comparison",
+      "diff",
+      "visual regression"
+    ]
   },
-  "version": "1.0.0",
+  "version": "1.0.1",
   "scripts": {
     "build": "tsc --project tsconfig.json"
   },

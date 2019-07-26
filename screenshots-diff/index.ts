@@ -10,15 +10,17 @@ import {
   logWarning
 } from "./log";
 import { TestRunResult } from "./types";
-const numberOfCores = require("os").cpus().length;
+const NUMBER_OF_CORES = require("os").cpus().length;
+const DEFAULT_THRESHOLD = .03;
 
-let diffScreenshotId = 0;
+let countProcessed = 0;
 let countDifferent = 0;
 
 export default async (
   baselinePath: string,
   candidatePath: string,
-  diffPath: string
+  diffPath: string,
+  threshold: number
 ): Promise<void> => {
   // Ensure the paths exists
   const missingPaths: string[] = [];
@@ -36,13 +38,15 @@ export default async (
     missingPaths.push(diffPath);
   }
 
-
   if (missingPaths.length > 0) {
     throw("The following paths do not exists:\n" + missingPaths.join("\n"));
   }
 
-  const pngFileNames = getPngFileNames(baselinePath, candidatePath);
+  // Clamp the threshold
+  threshold = Math.max(0, Math.min(1, threshold || DEFAULT_THRESHOLD));
 
+  // Get the list of unique PNG file names
+  const pngFileNames = getPngFileNames(baselinePath, candidatePath);
   if (pngFileNames.length > 0) {
     // Store cursor position to update the progress in the console
     console.log(ANSI_ESCAPES.saveCursorPosition);
@@ -50,7 +54,7 @@ export default async (
 
   // create pool of diffImagesAsyncProcesses
   const diffImagesAsyncProcesses: child_process.ChildProcess[] = [];
-  for (let i = 0; i < numberOfCores; i++) {
+  for (let i = 0; i < NUMBER_OF_CORES; i++) {
     diffImagesAsyncProcesses.push(
       child_process.fork("./lib/diffImagesAsync", [], {
         silent: true
@@ -69,8 +73,8 @@ export default async (
           // Listen to message ONCE to resolveAfterThisImage
           diffImagesAsyncProcess.once(
             "message",
-            (msg?: { mismatchedPixels: number; workloadName: string }) => {
-              // Push the testRunResult if the the images were different
+            (msg?: { mismatchedPixels: number }) => {
+              // Push the testRunResult if we got a message back
               if (msg !== undefined) {
                 testRunResults.push(
                   createTestRunResultAndUpdateProgressReport(
@@ -87,7 +91,8 @@ export default async (
           diffImagesAsyncProcess.send({
             baselineImagePath: `${baselinePath}/${imageName}`,
             candidateImagePath: `${candidatePath}/${imageName}`,
-            diffImagePath: `${diffPath}/${imageName}`
+            diffImagePath: `${diffPath}/${imageName}`,
+            threshold
           });
         });
       }
@@ -179,13 +184,12 @@ const createTestRunResultAndUpdateProgressReport = (
   }
   log(
     ANSI_ESCAPES.restoreCursorPosition +
-      `Processed ${diffScreenshotId +
+      `Processed ${countProcessed +
         1}/${count} incl. ${countDifferent} different`
   );
-  diffScreenshotId++;
+  countProcessed++;
 
   return {
-    diffId: diffScreenshotId,
     imageName,
     mismatchedPixels
   };

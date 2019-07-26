@@ -8,10 +8,9 @@ declare type ImageAndTestInformation = {
 };
 
 const COLOR_COMPONENTS = 4; /* for the RGBA components */
-const COLOR_DIFFERENCE_THRESHOLD = 0.03; /* Allow small color difference to cater for antialiasing differences and slow opacity fade */
-const BRIGHTNESS_DIFFERENCE_THRESHOLD = 255 * COLOR_DIFFERENCE_THRESHOLD;
+const DEFAULT_THRESHOLD = 0.03; /* Allow small color difference to cater for antialiasing differences and slow opacity fade */
+//const BRIGHTNESS_DIFFERENCE_THRESHOLD = 255 * DEFAULT_THRESHOLD;
 const COLOR_HIGHLIGHT_ABGR = 0xff0000ff;
-const FALLBACK_WORKLOAD_NAME = "unknown workload";
 
 const getImageFileNameFromPath = (imagePath: string) => {
   return imagePath.replace(/^.*\//, "");
@@ -37,7 +36,6 @@ const getImageAndTestInformation = (
       const imageFileName = getImageFileNameFromPath(imagePath);
       imageAndTestInformation.info = {
         name: imageFileName,
-        environment: "",
         viewport: {
           x: 0,
           y: 0,
@@ -55,11 +53,13 @@ const getImageAndTestInformation = (
 export const diffImagesAsync = async (
   baselineImagePath: string,
   candidateImagePath: string,
-  diffImagePath: string
-): Promise<{ mismatchedPixels: number; workloadName: string } | undefined> => {
+  diffImagePath: string,
+  threshold: number
+): Promise<{ mismatchedPixels: number } | undefined> => {
   const baseline = getImageAndTestInformation(baselineImagePath);
   const candidate = getImageAndTestInformation(candidateImagePath);
 
+  const BRIGHTNESS_DIFFERENCE_THRESHOLD = 255 * Math.min(1, Math.max(0, threshold || DEFAULT_THRESHOLD));
   // Skip if there are no valid images or the workload isn't in the config
   if (baseline.image === undefined && candidate.image === undefined) {
     return Promise.resolve(undefined);
@@ -68,7 +68,6 @@ export const diffImagesAsync = async (
   let width = 0,
     height = 0,
     imagesCount = 0,
-    workloadName = FALLBACK_WORKLOAD_NAME,
     baselineData: null | Uint8Array = null,
     candidateData: null | Uint8Array = null,
     baselineData32: null | Uint32Array = null,
@@ -83,7 +82,6 @@ export const diffImagesAsync = async (
     imagesCount++;
     width = baseline.info.viewport.width;
     height = baseline.info.viewport.height;
-    workloadName = baseline.info.environment;
 
     baselineData = new Uint8Array(baseline.image.data.buffer);
     baselineData32 = new Uint32Array(baselineData.buffer);
@@ -98,7 +96,6 @@ export const diffImagesAsync = async (
     imagesCount++;
     width = Math.max(width, candidate.info.viewport.width);
     height = Math.max(height, candidate.info.viewport.height);
-    workloadName = candidate.info.environment;
 
     candidateData = new Uint8Array(candidate.image.data.buffer);
     candidateData32 = new Uint32Array(candidateData.buffer);
@@ -119,7 +116,7 @@ export const diffImagesAsync = async (
   for (let y = 0; y < height; y++) {
     let indexDiff32 = y * width * 3 + width;
 
-    // Missing one image? -> red diff across the whole diff line
+    // Missing one image? -> highlight the whole diff line
     if (missingOneImage) {
       diffData32.fill(COLOR_HIGHLIGHT_ABGR, indexDiff32, indexDiff32 + width);
     }
@@ -216,18 +213,20 @@ export const diffImagesAsync = async (
     fs.writeFileSync(diffImagePath, buffer);
   }
 
-  return Promise.resolve({ mismatchedPixels, workloadName });
+  return Promise.resolve({ mismatchedPixels });
 };
 
 process.on("message", async msg => {
   const baselineImagePath = `${msg.baselineImagePath}`;
   const candidateImagePath = `${msg.candidateImagePath}`;
   const diffImagePath = `${msg.diffImagePath}`;
+  const threshold = msg.threshold;
 
   const diffResult = await diffImagesAsync(
     baselineImagePath,
     candidateImagePath,
-    diffImagePath
+    diffImagePath,
+    threshold
   );
 
   if (process.send) {
