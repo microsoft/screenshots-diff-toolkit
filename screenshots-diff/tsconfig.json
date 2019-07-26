@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+/*    "target": "es2015",
+    "lib": ["es2015"],
+    "strict": true,
+/*
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "declarationMap": true,
+    "inlineSourceMap": true,
+    "inlineSources": false,
+    "declaration": true,
+    "preserveWatchOutput": true,
+    "noImplicitAny": false,
+    "skipLibCheck": true,
+    */
+    "moduleResolution": "node",
+    "module": "commonjs",
+    "rootDir": ".",
+    "outDir": "lib"
+  }
+}

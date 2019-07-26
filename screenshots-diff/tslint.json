@@ -1,0 +1,3 @@
+{
+  "extends": ["@msfast/linting"]
+}
