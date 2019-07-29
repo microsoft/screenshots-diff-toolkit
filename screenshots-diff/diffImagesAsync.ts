@@ -59,12 +59,12 @@ export const diffImagesAsync = async (
   const baseline = getImageAndTestInformation(baselineImagePath);
   const candidate = getImageAndTestInformation(candidateImagePath);
 
-  const BRIGHTNESS_DIFFERENCE_THRESHOLD = 255 * Math.min(1, Math.max(0, threshold || DEFAULT_THRESHOLD));
-  // Skip if there are no valid images or the workload isn't in the config
+  // Skip if there are no valid images
   if (baseline.image === undefined && candidate.image === undefined) {
     return Promise.resolve(undefined);
   }
 
+  const BRIGHTNESS_DIFFERENCE_THRESHOLD = 255 * Math.min(1, Math.max(0, threshold || DEFAULT_THRESHOLD));
   let width = 0,
     height = 0,
     imagesCount = 0,

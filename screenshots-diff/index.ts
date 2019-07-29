@@ -9,7 +9,7 @@ import {
   logSuccess,
   logWarning
 } from "./log";
-import { TestRunResult } from "./types";
+import { TestRunResult, FormattedResults} from "./types";
 const NUMBER_OF_CORES = require("os").cpus().length;
 const DEFAULT_THRESHOLD = .03;
 
@@ -21,7 +21,7 @@ export default async (
   candidatePath: string,
   diffPath: string,
   threshold: number
-): Promise<void> => {
+): Promise<FormattedResults | void> => {
   // Ensure the paths exists
   const missingPaths: string[] = [];
   if (!fs.existsSync(baselinePath)) {
@@ -47,7 +47,8 @@ export default async (
 
   // Get the list of unique PNG file names
   const pngFileNames = getPngFileNames(baselinePath, candidatePath);
-  if (pngFileNames.length > 0) {
+  const countImages = pngFileNames.length;
+  if (countImages > 0) {
     // Store cursor position to update the progress in the console
     console.log(ANSI_ESCAPES.saveCursorPosition);
   }
@@ -67,7 +68,7 @@ export default async (
   const testRunResults: TestRunResult[] = [];
   await Promise.all(
     diffImagesAsyncProcesses.map(async diffImagesAsyncProcess => {
-      while (pngFileNameIndex < pngFileNames.length) {
+      while (pngFileNameIndex < countImages) {
         const imageName = pngFileNames[pngFileNameIndex++];
         await new Promise(resolveAfterThisImage => {
           // Listen to message ONCE to resolveAfterThisImage
@@ -80,7 +81,7 @@ export default async (
                   createTestRunResultAndUpdateProgressReport(
                     imageName,
                     msg.mismatchedPixels,
-                    pngFileNames.length
+                    countImages
                   )
                 );
               }
@@ -116,10 +117,11 @@ export default async (
       ? "Alright, there are some visible difference. But are they regressions or expected changes ?"
       : "Great! There are no visible difference between the two versions.";
 
-    storeTestRunResults(
+    const formatedResults = formatAndStoreResults(
       baselinePath,
       candidatePath,
       diffPath,
+      countImages,
       filteredTestRunResults,
       message
     );
@@ -129,6 +131,7 @@ export default async (
     } else {
       logSuccess(highlight(message));
     }
+    return formatedResults;
   }
 
   return;
@@ -195,26 +198,30 @@ const createTestRunResultAndUpdateProgressReport = (
   };
 };
 
-const storeTestRunResults = (
+const formatAndStoreResults = (
   baselinePath: string,
   candidatePath: string,
   diffPath: string,
-  testRunResults: TestRunResult[],
+  totalImagesCount: number,
+  differentImages: TestRunResult[],
   message: string
-): void => {
+): FormattedResults | void => {
   const filePath = `${diffPath}/diff.json`;
   try {
-    const runData = {
+    const formattedResults = {
       version: "0.0.1",
       message,
       baselinePath,
       candidatePath,
       diffPath,
-      testRunResults
+      totalImagesCount,
+      differentImages
     };
-    fs.writeFileSync(filePath, JSON.stringify(runData), { encoding: "utf8" });
+    fs.writeFileSync(filePath, JSON.stringify(formattedResults), { encoding: "utf8" });
     logInfo(`Test run results saved as ${filePath}`);
+    return formattedResults;
   } catch (err) {
     logError(`Could not save test run results as ${filePath}\n${err}`);
   }
+  return;
 };

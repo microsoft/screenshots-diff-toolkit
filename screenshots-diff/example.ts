@@ -9,7 +9,8 @@ const paths = {
 };
 const threshold = parseFloat(args[3]);
 
-const isInvalidArgs = args.length !== 4 || isNaN(threshold) || threshold < 0 || threshold > 1;
+const isInvalidArgs =
+  args.length !== 4 || isNaN(threshold) || threshold < 0 || threshold > 1;
 if (isInvalidArgs) {
   logError(
     "You must provide 4 arguments: baseline_path candidate_path result_path threshold where threshold is between 0 and 1"
