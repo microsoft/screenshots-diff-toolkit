@@ -2,9 +2,10 @@
   "name": "screenshots-diff",
   "description": "Side by side screenshots diff package designed to validate end to end and visual regression tests",
   "license": "MIT",
+  "main": "./lib/index.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/microsoft/screenshots-diff-toolkit/screenshots-diff",
+    "url": "git+https://github.com/microsoft/screenshots-diff-toolkit.git",
     "keywords": [
       "image",
       "comparison",
@@ -12,7 +13,7 @@
       "visual regression"
     ]
   },
-  "version": "1.0.1",
+  "version": "1.0.2",
   "scripts": {
     "build": "tsc --project tsconfig.json"
   },
