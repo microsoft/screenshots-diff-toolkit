@@ -1,5 +1,6 @@
 import * as child_process from "child_process";
 import * as fs from "fs";
+import { diffImagesAsync } from "./diffImagesAsync";
 import {
   ANSI_ESCAPES,
   highlight,
@@ -9,9 +10,9 @@ import {
   logSuccess,
   logWarning
 } from "./log";
-import { TestRunResult, FormattedResults} from "./types";
+import { TestRunResult, FormattedResults } from "./types";
 const NUMBER_OF_CORES = require("os").cpus().length;
-const DEFAULT_THRESHOLD = .03;
+const DEFAULT_THRESHOLD = 0.03;
 
 let countProcessed = 0;
 let countDifferent = 0;
@@ -20,7 +21,8 @@ export default async (
   baselinePath: string,
   candidatePath: string,
   diffPath: string,
-  threshold: number
+  threshold: number,
+  useSingleThread: boolean = false
 ): Promise<FormattedResults | void> => {
   // Ensure the paths exists
   const missingPaths: string[] = [];
@@ -39,7 +41,7 @@ export default async (
   }
 
   if (missingPaths.length > 0) {
-    throw("The following paths do not exists:\n" + missingPaths.join("\n"));
+    throw "The following paths do not exists:\n" + missingPaths.join("\n");
   }
 
   // Clamp the threshold
@@ -53,53 +55,75 @@ export default async (
     console.log(ANSI_ESCAPES.saveCursorPosition);
   }
 
-  // create pool of diffImagesAsyncProcesses
-  const diffImagesAsyncProcesses: child_process.ChildProcess[] = [];
-  for (let i = 0; i < NUMBER_OF_CORES; i++) {
-    diffImagesAsyncProcesses.push(
-      child_process.fork("./lib/diffImagesAsync", [], {
-        silent: true
+  const testRunResults: TestRunResult[] = [];
+  // Process all the images to get testRunResults
+  if (useSingleThread) {
+    // Process all the images using a single thread
+    for(const imageName of pngFileNames) {
+      const msg = await diffImagesAsync(
+        `${baselinePath}/${imageName}`,
+        `${candidatePath}/${imageName}`,
+        `${diffPath}/${imageName}`,
+        threshold
+      );
+      // Push the testRunResult if we got a message back
+      if (msg !== undefined) {
+        testRunResults.push(
+          createTestRunResultAndUpdateProgressReport(
+            imageName,
+            msg.mismatchedPixels,
+            countImages
+          )
+        );
+      }
+    }
+  } else {
+    // create pool of diffImagesAsyncProcesses to process all the images
+    const diffImagesAsyncProcesses: child_process.ChildProcess[] = [];
+    for (let i = 0; i < NUMBER_OF_CORES; i++) {
+      diffImagesAsyncProcesses.push(
+        child_process.fork("./lib/diffImagesAsync", [], {
+          silent: true
+        })
+      );
+    }
+
+    let pngFileNameIndex = 0;
+    await Promise.all(
+      diffImagesAsyncProcesses.map(async diffImagesAsyncProcess => {
+        while (pngFileNameIndex < countImages) {
+          const imageName = pngFileNames[pngFileNameIndex++];
+          await new Promise(resolveAfterThisImage => {
+            // Listen to message ONCE to resolveAfterThisImage
+            diffImagesAsyncProcess.once(
+              "message",
+              (msg?: { mismatchedPixels: number }) => {
+                // Push the testRunResult if we got a message back
+                if (msg !== undefined) {
+                  testRunResults.push(
+                    createTestRunResultAndUpdateProgressReport(
+                      imageName,
+                      msg.mismatchedPixels,
+                      countImages
+                    )
+                  );
+                }
+                resolveAfterThisImage();
+              }
+            );
+            // Send message to the diffImagesAsyncProcess for this image
+            diffImagesAsyncProcess.send({
+              baselineImagePath: `${baselinePath}/${imageName}`,
+              candidateImagePath: `${candidatePath}/${imageName}`,
+              diffImagePath: `${diffPath}/${imageName}`,
+              threshold
+            });
+          });
+        }
+        diffImagesAsyncProcess.kill();
       })
     );
   }
-
-  // Process all the images to get testRunResults using all diffImagesAsyncProcesses
-  let pngFileNameIndex = 0;
-  const testRunResults: TestRunResult[] = [];
-  await Promise.all(
-    diffImagesAsyncProcesses.map(async diffImagesAsyncProcess => {
-      while (pngFileNameIndex < countImages) {
-        const imageName = pngFileNames[pngFileNameIndex++];
-        await new Promise(resolveAfterThisImage => {
-          // Listen to message ONCE to resolveAfterThisImage
-          diffImagesAsyncProcess.once(
-            "message",
-            (msg?: { mismatchedPixels: number }) => {
-              // Push the testRunResult if we got a message back
-              if (msg !== undefined) {
-                testRunResults.push(
-                  createTestRunResultAndUpdateProgressReport(
-                    imageName,
-                    msg.mismatchedPixels,
-                    countImages
-                  )
-                );
-              }
-              resolveAfterThisImage();
-            }
-          );
-          // Send message to the diffImagesAsyncProcess for this image
-          diffImagesAsyncProcess.send({
-            baselineImagePath: `${baselinePath}/${imageName}`,
-            candidateImagePath: `${candidatePath}/${imageName}`,
-            diffImagePath: `${diffPath}/${imageName}`,
-            threshold
-          });
-        });
-      }
-      diffImagesAsyncProcess.kill();
-    })
-  );
 
   if (testRunResults.length === 0) {
     logError(
@@ -217,7 +241,9 @@ const formatAndStoreResults = (
       totalImagesCount,
       differentImages
     };
-    fs.writeFileSync(filePath, JSON.stringify(formattedResults), { encoding: "utf8" });
+    fs.writeFileSync(filePath, JSON.stringify(formattedResults), {
+      encoding: "utf8"
+    });
     logInfo(`Test run results saved as ${filePath}`);
     return formattedResults;
   } catch (err) {
