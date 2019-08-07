@@ -55,12 +55,15 @@ const getImageAndTestInformation = (
   return imageAndTestInformation;
 };
 
-export const diffImagesAsync = async (
-  baselineImagePath: string,
-  candidateImagePath: string,
-  diffImagePath: string,
-  threshold: number
-): Promise<{ mismatchedPixels: number } | undefined> => {
+export const diffImagesAsync = async (options: {
+  baselineImagePath: string;
+  candidateImagePath: string;
+  diffImagePath: string;
+  threshold: number;
+}): Promise<{ mismatchedPixels: number } | undefined> => {
+  const { baselineImagePath, candidateImagePath, diffImagePath, threshold } = {
+    ...options
+  };
   const baseline = getImageAndTestInformation(baselineImagePath);
   const candidate = getImageAndTestInformation(candidateImagePath);
 
@@ -223,17 +226,12 @@ export const diffImagesAsync = async (
 };
 
 process.on("message", async msg => {
-  const baselineImagePath = `${msg.baselineImagePath}`;
-  const candidateImagePath = `${msg.candidateImagePath}`;
-  const diffImagePath = `${msg.diffImagePath}`;
-  const threshold = msg.threshold;
-
-  const diffResult = await diffImagesAsync(
-    baselineImagePath,
-    candidateImagePath,
-    diffImagePath,
-    threshold
-  );
+  const diffResult = await diffImagesAsync({
+    baselineImagePath: `${msg.baselineImagePath}`,
+    candidateImagePath: `${msg.candidateImagePath}`,
+    diffImagePath: `${msg.diffImagePath}`,
+    threshold: msg.threshold
+  });
 
   if (process.send) {
     process.send(diffResult);
