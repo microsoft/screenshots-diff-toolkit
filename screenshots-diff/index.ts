@@ -49,11 +49,11 @@ export default async (
   threshold = Math.max(0, Math.min(1, threshold || DEFAULT_THRESHOLD));
 
   // Get the list of unique screenshot file names
-  const screemshotFileNames = getScreenshotFileNames(
+  const screenshotFileNames = getScreenshotFileNames(
     baselinePath,
     candidatePath
   );
-  const countImages = screemshotFileNames.length;
+  const countImages = screenshotFileNames.length;
   if (countImages > 0) {
     // Store cursor position to update the progress in the console
     console.log(ANSI_ESCAPES.saveCursorPosition);
@@ -66,7 +66,7 @@ export default async (
     diffImagesAsyncProcess?: child_process.ChildProcess
   ) => {
     while (screenshotFileNameIndex < countImages) {
-      const imageName = screemshotFileNames[screenshotFileNameIndex++];
+      const imageName = screenshotFileNames[screenshotFileNameIndex++];
       const diffImageName = imageName.replace(/\.jpg$/, ".png");
       const diffImagePath = `${diffPath}${sep}${diffImageName}`;
       const options = {
@@ -164,28 +164,28 @@ const getScreenshotFileNames = (
   baselinePath: string,
   candidatePath: string
 ): string[] => {
-  const screemshotFileNamesBaseline = fs
+  const screenshotFileNamesBaseline = fs
     .readdirSync(baselinePath)
     .filter(filterOutAnythingButScreenshots);
   const screenshotFileNamesCandidate = fs
     .readdirSync(candidatePath)
     .filter(filterOutAnythingButScreenshots);
   const screenshotFileNames = Array.from(
-    new Set(screemshotFileNamesBaseline.concat(screenshotFileNamesCandidate))
+    new Set(screenshotFileNamesBaseline.concat(screenshotFileNamesCandidate))
   );
 
   if (
-    screemshotFileNamesBaseline.length > 0 &&
+    screenshotFileNamesBaseline.length > 0 &&
     screenshotFileNamesCandidate.length > 0
   ) {
     log(`Found ${screenshotFileNames.length} unique PNG and JPG file names`);
     return Array.from(
-      new Set(screemshotFileNamesBaseline.concat(screenshotFileNamesCandidate))
+      new Set(screenshotFileNamesBaseline.concat(screenshotFileNamesCandidate))
     );
   }
 
   const errorMessages: string[] = [];
-  if (screemshotFileNamesBaseline.length === 0) {
+  if (screenshotFileNamesBaseline.length === 0) {
     errorMessages.push(`  No PNG or JPG images found in ${baselinePath}`);
   }
   if (screenshotFileNamesCandidate.length === 0) {
