@@ -1,5 +1,6 @@
 import * as child_process from "child_process";
 import * as fs from "fs";
+import { sep } from "path";
 import { diffImagesAsync } from "./diffImagesAsync";
 import {
   ANSI_ESCAPES,
@@ -61,9 +62,9 @@ export default async (
     // Process all the images using a single thread
     for(const imageName of pngFileNames) {
       const msg = await diffImagesAsync(
-        `${baselinePath}/${imageName}`,
-        `${candidatePath}/${imageName}`,
-        `${diffPath}/${imageName}`,
+        `${baselinePath}${sep}${imageName}`,
+        `${candidatePath}${sep}${imageName}`,
+        `${diffPath}${sep}${imageName}`,
         threshold
       );
       // Push the testRunResult if we got a message back
@@ -113,9 +114,9 @@ export default async (
             );
             // Send message to the diffImagesAsyncProcess for this image
             diffImagesAsyncProcess.send({
-              baselineImagePath: `${baselinePath}/${imageName}`,
-              candidateImagePath: `${candidatePath}/${imageName}`,
-              diffImagePath: `${diffPath}/${imageName}`,
+              baselineImagePath: `${baselinePath}${sep}${imageName}`,
+              candidateImagePath: `${candidatePath}${sep}${imageName}`,
+              diffImagePath: `${diffPath}${sep}${imageName}`,
               threshold
             });
           });
@@ -230,7 +231,7 @@ const formatAndStoreResults = (
   differentImages: TestRunResult[],
   message: string
 ): FormattedResults | void => {
-  const filePath = `${diffPath}/diff.json`;
+  const filePath = `${diffPath}${sep}diff.json`;
   try {
     const formattedResults = {
       version: "0.0.1",
