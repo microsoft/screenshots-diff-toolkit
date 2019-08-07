@@ -13,14 +13,16 @@
       "visual regression"
     ]
   },
-  "version": "1.0.6",
+  "version": "1.0.7",
   "scripts": {
     "build": "tsc --project tsconfig.json"
   },
   "dependencies": {
+    "jpeg-js": "0.3.6",
     "pngjs": "3.4.0"
   },
   "devDependencies": {
+    "@types/jpeg-js": "^0.3.0",
     "@types/pngjs": "^3.3.2",
     "@types/node": "^10.14.0",
     "typescript": "3.5.3"

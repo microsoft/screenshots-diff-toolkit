@@ -1,9 +1,11 @@
 import * as fs from "fs";
+import { sep } from "path";
+import { decode } from "jpeg-js";
 import { PNG } from "pngjs";
 import { TestInformation } from "./types";
 
 declare type ImageAndTestInformation = {
-  image?: PNG;
+  image?: PNG | { width: number; height: number; data: Uint8Array };
   info?: TestInformation;
 };
 
@@ -13,7 +15,7 @@ const DEFAULT_THRESHOLD = 0.03; /* Allow small color difference to cater for ant
 const COLOR_HIGHLIGHT_ABGR = 0xff0000ff;
 
 const getImageFileNameFromPath = (imagePath: string) => {
-  return imagePath.replace(/^.*\//, "");
+  return `${imagePath.split(sep).pop()}`;
 };
 
 const getImageAndTestInformation = (
@@ -21,7 +23,7 @@ const getImageAndTestInformation = (
 ): ImageAndTestInformation => {
   const imageAndTestInformation: ImageAndTestInformation = {};
   if (fs.existsSync(imagePath)) {
-    const jsonPath = imagePath.replace(/\.png$/i, ".json");
+    const jsonPath = imagePath.replace(/\..+$/i, ".json");
     if (fs.existsSync(jsonPath)) {
       imageAndTestInformation.info = JSON.parse(
         fs.readFileSync(jsonPath, { encoding: "utf-8" })
@@ -30,7 +32,10 @@ const getImageAndTestInformation = (
 
     const buffer = fs.readFileSync(imagePath);
 
-    imageAndTestInformation.image = PNG.sync.read(buffer);
+    const isPNG = imagePath.endsWith(".png");
+    imageAndTestInformation.image = isPNG
+      ? PNG.sync.read(buffer)
+      : decode(buffer);
 
     if (!imageAndTestInformation.info) {
       const imageFileName = getImageFileNameFromPath(imagePath);
@@ -64,7 +69,8 @@ export const diffImagesAsync = async (
     return Promise.resolve(undefined);
   }
 
-  const BRIGHTNESS_DIFFERENCE_THRESHOLD = 255 * Math.min(1, Math.max(0, threshold || DEFAULT_THRESHOLD));
+  const BRIGHTNESS_DIFFERENCE_THRESHOLD =
+    255 * Math.min(1, Math.max(0, threshold || DEFAULT_THRESHOLD));
   let width = 0,
     height = 0,
     imagesCount = 0,
@@ -110,7 +116,7 @@ export const diffImagesAsync = async (
   const diffData = diff.data;
   const diffData32 = new Uint32Array(diffData.buffer);
   const missingOneImage = imagesCount === 1;
-  let mismatchedPixels = missingOneImage ? -width * 3 * height : 0;
+  let mismatchedPixels = missingOneImage ? width * height : 0;
 
   // Diff the images
   for (let y = 0; y < height; y++) {
@@ -208,7 +214,7 @@ export const diffImagesAsync = async (
     }
   }
 
-  if (mismatchedPixels>0) {
+  if (mismatchedPixels > 0) {
     const buffer = PNG.sync.write(diff);
     fs.writeFileSync(diffImagePath, buffer);
   }

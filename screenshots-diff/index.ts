@@ -48,9 +48,9 @@ export default async (
   // Clamp the threshold
   threshold = Math.max(0, Math.min(1, threshold || DEFAULT_THRESHOLD));
 
-  // Get the list of unique PNG file names
-  const pngFileNames = getPngFileNames(baselinePath, candidatePath);
-  const countImages = pngFileNames.length;
+  // Get the list of unique screenshot file names
+  const screemshotFileNames = getScreenshotFileNames(baselinePath, candidatePath);
+  const countImages = screemshotFileNames.length;
   if (countImages > 0) {
     // Store cursor position to update the progress in the console
     console.log(ANSI_ESCAPES.saveCursorPosition);
@@ -60,18 +60,19 @@ export default async (
   // Process all the images to get testRunResults
   if (useSingleThread) {
     // Process all the images using a single thread
-    for(const imageName of pngFileNames) {
+    for (const imageName of screemshotFileNames) {
+      const diffImageName = imageName.replace(/\.jpg$/, ".png");
       const msg = await diffImagesAsync(
         `${baselinePath}${sep}${imageName}`,
         `${candidatePath}${sep}${imageName}`,
-        `${diffPath}${sep}${imageName}`,
+        `${diffPath}${sep}${diffImageName}`,
         threshold
       );
       // Push the testRunResult if we got a message back
       if (msg !== undefined) {
         testRunResults.push(
           createTestRunResultAndUpdateProgressReport(
-            imageName,
+            diffImageName,
             msg.mismatchedPixels,
             countImages
           )
@@ -89,11 +90,12 @@ export default async (
       );
     }
 
-    let pngFileNameIndex = 0;
+    let screenshotFileNameIndex = 0;
     await Promise.all(
       diffImagesAsyncProcesses.map(async diffImagesAsyncProcess => {
-        while (pngFileNameIndex < countImages) {
-          const imageName = pngFileNames[pngFileNameIndex++];
+        while (screenshotFileNameIndex < countImages) {
+          const imageName = screemshotFileNames[screenshotFileNameIndex++];
+          const diffImageName = imageName.replace(/\.jpg$/, ".png");
           await new Promise(resolveAfterThisImage => {
             // Listen to message ONCE to resolveAfterThisImage
             diffImagesAsyncProcess.once(
@@ -103,7 +105,7 @@ export default async (
                 if (msg !== undefined) {
                   testRunResults.push(
                     createTestRunResultAndUpdateProgressReport(
-                      imageName,
+                      diffImageName,
                       msg.mismatchedPixels,
                       countImages
                     )
@@ -116,7 +118,7 @@ export default async (
             diffImagesAsyncProcess.send({
               baselineImagePath: `${baselinePath}${sep}${imageName}`,
               candidateImagePath: `${candidatePath}${sep}${imageName}`,
-              diffImagePath: `${diffPath}${sep}${imageName}`,
+              diffImagePath: `${diffPath}${sep}${diffImageName}`,
               threshold
             });
           });
@@ -162,45 +164,41 @@ export default async (
   return;
 };
 
-const getPngFileNames = (
+const getScreenshotFileNames = (
   baselinePath: string,
   candidatePath: string
 ): string[] => {
-  const pngFileNamesBaseline = fs
+  const screemshotFileNamesBaseline = fs
     .readdirSync(baselinePath)
-    .filter(filterOutAnythingButPngs);
-  const pngFileNamesCandidate = fs
+    .filter(filterOutAnythingButScreenshots);
+  const screenshotFileNamesCandidate = fs
     .readdirSync(candidatePath)
-    .filter(filterOutAnythingButPngs);
-  const pngFileNames = Array.from(
-    new Set(pngFileNamesBaseline.concat(pngFileNamesCandidate))
+    .filter(filterOutAnythingButScreenshots);
+  const screenshotFileNames = Array.from(
+    new Set(screemshotFileNamesBaseline.concat(screenshotFileNamesCandidate))
   );
 
-  if (pngFileNamesBaseline.length > 0 && pngFileNamesCandidate.length > 0) {
-    log(`Found ${pngFileNames.length} unique PNG file names`);
+  if (screemshotFileNamesBaseline.length > 0 && screenshotFileNamesCandidate.length > 0) {
+    log(`Found ${screenshotFileNames.length} unique PNG and JPG file names`);
     return Array.from(
-      new Set(pngFileNamesBaseline.concat(pngFileNamesCandidate))
+      new Set(screemshotFileNamesBaseline.concat(screenshotFileNamesCandidate))
     );
   }
 
   const errorMessages: string[] = [];
-  if (pngFileNamesBaseline.length === 0) {
-    errorMessages.push(
-      `  No PNG images found in the baseline path: ${baselinePath}`
-    );
+  if (screemshotFileNamesBaseline.length === 0) {
+    errorMessages.push(`  No PNG or JPG images found in ${baselinePath}`);
   }
-  if (pngFileNamesCandidate.length === 0) {
-    errorMessages.push(
-      `  No PNG images found in the candidate path: ${candidatePath}`
-    );
+  if (screenshotFileNamesCandidate.length === 0) {
+    errorMessages.push(`  No PNG or JPG images found in ${candidatePath}`);
   }
 
   logError(highlight(`\n${errorMessages.join("\n")}\n`));
   return [];
 };
 
-const filterOutAnythingButPngs = (filename: string): boolean =>
-  filename.endsWith(".png");
+const filterOutAnythingButScreenshots = (filename: string): boolean =>
+  filename.endsWith(".png") || filename.endsWith(".jpg");
 
 const createTestRunResultAndUpdateProgressReport = (
   imageName: string,
