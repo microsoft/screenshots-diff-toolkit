@@ -121,6 +121,12 @@ export const diffImagesAsync = async (options: {
   const missingOneImage = imagesCount === 1;
   let mismatchedPixels = missingOneImage ? width * height : 0;
 
+  const lowResScale = Math.ceil(Math.min(width, height) / 8);
+  const lowResWidth = Math.ceil(width / lowResScale);
+  const lowResHeight = Math.ceil(height / lowResScale);
+  const lowResHighlightData = new Uint8ClampedArray(lowResWidth * lowResHeight);
+
+  // tslint:disable no-bitwise
   // Diff the images
   for (let y = 0; y < height; y++) {
     let indexDiff32 = y * width * 3 + width;
@@ -167,8 +173,8 @@ export const diffImagesAsync = async (options: {
       let bIndex8 = (indexDiff32 - width) * COLOR_COMPONENTS;
       let cIndex8 = (indexDiff32 + width) * COLOR_COMPONENTS;
       let differenceBrightness: number;
+      let indexLowRes: number = Math.floor(y / lowResScale) * lowResWidth;
 
-      // tslint:disable no-bitwise
       for (let x = 0; x < width; x++) {
         const bABGR = diffData32[indexDiff32 - width];
         const cABGR = diffData32[indexDiff32 + width];
@@ -196,6 +202,7 @@ export const diffImagesAsync = async (options: {
           // Above the threshold -> red/green filter and red diff
           mismatchedPixels++;
           diffData32[indexDiff32] = COLOR_HIGHLIGHT_ABGR;
+          lowResHighlightData[indexLowRes | 0]++;
 
           if ((x + y) & 1) {
             // Output the baseline pixel with green filter to show additions in the candidate
@@ -212,10 +219,35 @@ export const diffImagesAsync = async (options: {
         bIndex8 += COLOR_COMPONENTS;
         cIndex8 += COLOR_COMPONENTS;
         indexDiff32++;
+        indexLowRes += 1 / lowResScale;
       }
-      // tslint:enable no-bitwise
     }
   }
+
+  // Add the low resolution highlight if there was any mismatched pixels
+  if (mismatchedPixels > 0 && baselineData !== null && candidateData !== null) {
+    for (let lowResY = 0; lowResY < lowResHeight; lowResY++) {
+      const yStart = lowResY * lowResScale;
+      const yEnd = Math.min(height, yStart + lowResScale);
+      for (let lowResX = 0; lowResX < lowResWidth; lowResX++) {
+        if (lowResHighlightData[lowResX + lowResY * lowResWidth] > 0) {
+          const xStart = lowResX * lowResScale;
+          const xEnd = Math.min(width, xStart + lowResScale);
+
+          for (let y = yStart; y < yEnd; y++) {
+            let indexDiff32 = y * width * 3 + width + xStart;
+            for (let x = xStart; x < xEnd; x++) {
+              const ABGR = diffData32[indexDiff32];
+              if (ABGR !== COLOR_HIGHLIGHT_ABGR) {
+                diffData32[indexDiff32] = (ABGR & 0xff1f1f1f) | 0x60c0e0;
+              }
+              indexDiff32++;
+            }
+          }
+        }
+      }
+    }
+  }  // tslint:enable no-bitwise
 
   if (mismatchedPixels > 0) {
     const buffer = PNG.sync.write(diff);
