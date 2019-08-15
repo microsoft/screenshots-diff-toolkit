@@ -2,7 +2,7 @@ import * as fs from "fs";
 import { sep } from "path";
 import { decode } from "jpeg-js";
 import { PNG } from "pngjs";
-import { TestInformation } from "./types";
+import { TestInformation, MISSING_BASELINE, MISSING_CANDIDATE } from "./types";
 
 declare type ImageAndTestInformation = {
   image?: PNG | { width: number; height: number; data: Uint8Array };
@@ -119,7 +119,7 @@ export const diffImagesAsync = async (options: {
   const diffData = diff.data;
   const diffData32 = new Uint32Array(diffData.buffer);
   const missingOneImage = imagesCount === 1;
-  let mismatchedPixels = missingOneImage ? width * height : 0;
+  let mismatchedPixels = missingOneImage ? baselineData32 === null ? MISSING_BASELINE : MISSING_CANDIDATE : 0;
 
   const lowResScale = Math.ceil(Math.min(width, height) / 8);
   const lowResWidth = Math.ceil(width / lowResScale);
@@ -249,7 +249,7 @@ export const diffImagesAsync = async (options: {
     }
   }  // tslint:enable no-bitwise
 
-  if (mismatchedPixels > 0) {
+  if (mismatchedPixels !== 0) {
     const buffer = PNG.sync.write(diff);
     fs.writeFileSync(diffImagePath, buffer);
   }

@@ -11,12 +11,19 @@ import {
   logSuccess,
   logWarning
 } from "./log";
-import { TestRunResult, FormattedResults } from "./types";
+import {
+  TestRunResult,
+  FormattedResults,
+  MISSING_BASELINE,
+  MISSING_CANDIDATE
+} from "./types";
 const NUMBER_OF_CORES = require("os").cpus().length;
 const DEFAULT_THRESHOLD = 0.03;
 
 let countProcessed = 0;
 let countDifferent = 0;
+let countAdded = 0;
+let countRemoved = 0;
 
 export default async (
   baselinePath: string,
@@ -60,7 +67,10 @@ export default async (
   }
 
   let screenshotFileNameIndex = 0;
-  const testRunResults: TestRunResult[] = [];
+  const screenshotsAdded: string[] = [];
+  const screenshotsRemoved: string[] = [];
+  const screenshotsUnchanged: string[] = [];
+  const screenshotsChanged: TestRunResult[] = [];
 
   const diffImages = async (
     diffImagesAsyncProcess?: child_process.ChildProcess
@@ -89,15 +99,22 @@ export default async (
           })
         : await diffImagesAsync(options);
 
-      // Push the testRunResult if we got a message back
+      // Push the result if we got a message back
       if (msg !== undefined) {
-        testRunResults.push(
-          createTestRunResultAndUpdateProgressReport(
-            diffImageName,
-            msg.mismatchedPixels,
-            countImages
-          )
-        );
+        const mismatchedPixels = msg.mismatchedPixels;
+        updateProgressReport(mismatchedPixels, countImages);
+        if (mismatchedPixels === 0) {
+          screenshotsUnchanged.push(imageName);
+        } else if (mismatchedPixels === MISSING_BASELINE) {
+          screenshotsAdded.push(imageName);
+        } else if (mismatchedPixels === MISSING_CANDIDATE) {
+          screenshotsRemoved.push(imageName);
+        } else {
+          screenshotsChanged.push({
+            imageName: diffImageName,
+            mismatchedPixels
+          });
+        }
       }
     }
 
@@ -124,28 +141,26 @@ export default async (
     await Promise.all(diffImagesAsyncProcesses.map(diffImages));
   }
 
-  if (testRunResults.length === 0) {
+  if (screenshotsUnchanged.length === 0) {
     logError(
       highlight(
         "  The tests didn't seem to run.\n  See previous errors for more context"
       )
     );
   } else {
-    // Filter out testRunResults with no mismatched pixels
-    const filteredTestRunResults = testRunResults.filter(
-      testRunResult => testRunResult.mismatchedPixels !== 0
-    );
-    const foundVisibleDifferences = filteredTestRunResults.length > 0;
+    const foundVisibleDifferences = screenshotsUnchanged.length < countImages;
     const message = foundVisibleDifferences
-      ? "Alright, there are some visible difference. But are they regressions or expected changes ?"
-      : "Great! There are no visible difference between the two versions.";
+      ? `Alright, there was ${screenshotsAdded.length} screenshots added, ${screenshotsRemoved.length} removed, ${screenshotsUnchanged.length} unchanged and ${screenshotsChanged.length} with visible differences. But are they regressions or expected changes ?`
+      : "Great! There are no visible difference between the two sets of screenshots.";
 
     const formatedResults = formatAndStoreResults(
       baselinePath,
       candidatePath,
       diffPath,
       countImages,
-      filteredTestRunResults,
+      screenshotsAdded,
+      screenshotsRemoved,
+      screenshotsChanged,
       message
     );
 
@@ -170,7 +185,8 @@ const getScreenshotFileNames = (
   const screenshotFileNamesCandidate = fs
     .readdirSync(candidatePath)
     .filter(filterOutAnythingButScreenshots);
-  const screenshotFileNames = Array.from(
+
+  const fileNames = Array.from(
     new Set(screenshotFileNamesBaseline.concat(screenshotFileNamesCandidate))
   );
 
@@ -178,10 +194,8 @@ const getScreenshotFileNames = (
     screenshotFileNamesBaseline.length > 0 &&
     screenshotFileNamesCandidate.length > 0
   ) {
-    log(`Found ${screenshotFileNames.length} unique PNG and JPG file names`);
-    return Array.from(
-      new Set(screenshotFileNamesBaseline.concat(screenshotFileNamesCandidate))
-    );
+    log(`Found ${fileNames.length} unique PNG and JPG file names.`);
+    return fileNames;
   }
 
   const errorMessages: string[] = [];
@@ -193,51 +207,52 @@ const getScreenshotFileNames = (
   }
 
   logError(highlight(`\n${errorMessages.join("\n")}\n`));
-  return [];
+  return fileNames;
 };
 
 const filterOutAnythingButScreenshots = (filename: string): boolean =>
   filename.endsWith(".png") || filename.endsWith(".jpg");
 
-const createTestRunResultAndUpdateProgressReport = (
-  imageName: string,
-  mismatchedPixels: number,
-  count: number
-): TestRunResult => {
-  if (mismatchedPixels !== 0) {
+const updateProgressReport = (mismatchedPixels: number, count: number) => {
+  if (mismatchedPixels === MISSING_BASELINE) {
+    countAdded++;
+  } else if (mismatchedPixels === MISSING_CANDIDATE) {
+    countRemoved++;
+  } else if (mismatchedPixels !== 0) {
     countDifferent++;
   }
+  const countUnchanged = count - countDifferent - countAdded - countRemoved;
+
   log(
-    ANSI_ESCAPES.restoreCursorPosition +
-      `Processed ${countProcessed +
-        1}/${count} incl. ${countDifferent} different`
+    ANSI_ESCAPES.restoreCursorPosition + ANSI_ESCAPES.clearLine +
+    `Processed ${countProcessed +
+      1}/${count}\t// ${countUnchanged} unchanged + ${countDifferent} changed + ${countAdded} added + ${countRemoved} removed`
   );
   countProcessed++;
-
-  return {
-    imageName,
-    mismatchedPixels
-  };
 };
 
 const formatAndStoreResults = (
   baselinePath: string,
   candidatePath: string,
   diffPath: string,
-  totalImagesCount: number,
-  differentImages: TestRunResult[],
+  totalScreenshotsCount: number,
+  screenshotsAdded: string[],
+  screenshotsRemoved: string[],
+  screenshotsChanged: TestRunResult[],
   message: string
 ): FormattedResults | void => {
   const filePath = `${diffPath}${sep}diff.json`;
   try {
     const formattedResults = {
-      version: "0.0.1",
+      version: "0.0.2",
       message,
       baselinePath,
       candidatePath,
       diffPath,
-      totalImagesCount,
-      differentImages
+      totalScreenshotsCount,
+      screenshotsAdded,
+      screenshotsRemoved,
+      screenshotsChanged
     };
     fs.writeFileSync(filePath, JSON.stringify(formattedResults), {
       encoding: "utf8"
