@@ -5,15 +5,15 @@
   "main": "./lib/index.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/microsoft/screenshots-diff-toolkit.git",
-    "keywords": [
-      "image",
-      "comparison",
-      "diff",
-      "visual regression"
-    ]
+    "url": "git+https://github.com/microsoft/screenshots-diff-toolkit.git"
   },
-  "version": "1.1.0",
+  "keywords": [
+    "image",
+    "comparison",
+    "diff",
+    "visual regression"
+  ],
+  "version": "1.1.1",
   "scripts": {
     "build": "tsc --project tsconfig.json"
   },
