@@ -119,7 +119,11 @@ export const diffImagesAsync = async (options: {
   const diffData = diff.data;
   const diffData32 = new Uint32Array(diffData.buffer);
   const missingOneImage = imagesCount === 1;
-  let mismatchedPixels = missingOneImage ? baselineData32 === null ? MISSING_BASELINE : MISSING_CANDIDATE : 0;
+  let mismatchedPixels = missingOneImage
+    ? baselineData32 === null
+      ? MISSING_BASELINE
+      : MISSING_CANDIDATE
+    : 0;
 
   const lowResScale = Math.ceil(Math.min(width, height) / 8);
   const lowResWidth = Math.ceil(width / lowResScale);
@@ -205,14 +209,14 @@ export const diffImagesAsync = async (options: {
           lowResHighlightData[indexLowRes | 0]++;
 
           if ((x + y) & 1) {
-            // Output the baseline pixel with green filter to show additions in the candidate
+            // Output the candidate pixel with red filter to show deletions in the candidate
             if (cABGR !== 0xffffffff) {
-              diffData32[indexDiff32 - width] = bBGRShifted | 0xff60e060;
+              diffData32[indexDiff32 - width] = bBGRShifted | 0xff6060e0;
             }
-            // Output the candidate pixel with red filter to show deletions from the baseline
+            // Output the candidate pixel with green filter to show additions from the baseline
             if (bABGR !== 0xffffffff) {
               const cBGRShifted = (cABGR >> 3) & 0x001f1f1f;
-              diffData32[indexDiff32 + width] = cBGRShifted | 0xff6060e0;
+              diffData32[indexDiff32 + width] = cBGRShifted | 0xff60e060;
             }
           }
         }
@@ -247,7 +251,8 @@ export const diffImagesAsync = async (options: {
         }
       }
     }
-  }  // tslint:enable no-bitwise
+  }
+  // tslint:enable no-bitwise
 
   if (mismatchedPixels !== 0) {
     const buffer = PNG.sync.write(diff);

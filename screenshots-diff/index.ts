@@ -21,9 +21,10 @@ const NUMBER_OF_CORES = require("os").cpus().length;
 const DEFAULT_THRESHOLD = 0.03;
 
 let countProcessed = 0;
-let countDifferent = 0;
+let countChanged = 0;
 let countAdded = 0;
 let countRemoved = 0;
+let countUnchanged = 0;
 
 export default async (
   baselinePath: string,
@@ -219,14 +220,15 @@ const updateProgressReport = (mismatchedPixels: number, count: number) => {
   } else if (mismatchedPixels === MISSING_CANDIDATE) {
     countRemoved++;
   } else if (mismatchedPixels !== 0) {
-    countDifferent++;
+    countChanged++;
+  } else {
+    countUnchanged++;
   }
-  const countUnchanged = count - countDifferent - countAdded - countRemoved;
 
   log(
     ANSI_ESCAPES.restoreCursorPosition + ANSI_ESCAPES.clearLine +
     `Processed ${countProcessed +
-      1}/${count}\t// ${countUnchanged} unchanged + ${countDifferent} changed + ${countAdded} added + ${countRemoved} removed`
+      1}/${count}\t// ${countUnchanged} unchanged + ${countChanged} changed + ${countAdded} added + ${countRemoved} removed`
   );
   countProcessed++;
 };
