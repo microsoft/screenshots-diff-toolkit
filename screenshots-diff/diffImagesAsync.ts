@@ -23,7 +23,7 @@ const getImageAndTestInformation = async (
   return new Promise(async resolve => {
     const imageAndTestInformation: ImageAndTestInformation = {};
     if (fs.existsSync(imagePath)) {
-      const jsonPath = imagePath.replace(/\..+$/i, ".json");
+      const jsonPath = imagePath.replace(/\.[^.]+$/i, ".json");
       if (fs.existsSync(jsonPath)) {
         imageAndTestInformation.info = JSON.parse(
           fs.readFileSync(jsonPath, { encoding: "utf-8" })
