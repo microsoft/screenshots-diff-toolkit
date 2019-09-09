@@ -18,6 +18,7 @@ export const MISSING_CANDIDATE = 0.5;
 export type TestRunResult = {
   readonly imageName: string;
   readonly mismatchedPixels: number;
+  readonly diffHash: number;
 };
 
 export type FormattedResults = {

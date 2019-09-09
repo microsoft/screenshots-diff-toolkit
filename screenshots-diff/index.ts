@@ -87,13 +87,13 @@ export default async (
         threshold
       };
       const msg:
-        | { mismatchedPixels: number }
+        | { mismatchedPixels: number; diffHash: number }
         | undefined = diffImagesAsyncProcess
         ? await new Promise(resolveAfterThisImage => {
             // Listen to message ONCE to resolveAfterThisImage
             diffImagesAsyncProcess.once(
               "message",
-              (msg?: { mismatchedPixels: number }) => resolveAfterThisImage(msg)
+              (msg?: { mismatchedPixels: number; diffHash: number }) => resolveAfterThisImage(msg)
             );
             // Send message to the diffImagesAsyncProcess for this image
             diffImagesAsyncProcess.send(options);
@@ -103,6 +103,7 @@ export default async (
       // Push the result if we got a message back
       if (msg !== undefined) {
         const mismatchedPixels = msg.mismatchedPixels;
+        const diffHash = msg.diffHash;
         updateProgressReport(mismatchedPixels, countImages);
         if (mismatchedPixels === 0) {
           screenshotsUnchanged.push(imageName);
@@ -113,7 +114,8 @@ export default async (
         } else {
           screenshotsChanged.push({
             imageName: diffImageName,
-            mismatchedPixels
+            mismatchedPixels,
+            diffHash
           });
         }
       }

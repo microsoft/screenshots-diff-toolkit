@@ -12,6 +12,7 @@ declare type ImageAndTestInformation = {
 const COLOR_COMPONENTS = 4; /* for the RGBA components */
 const DEFAULT_THRESHOLD = 0.03; /* Allow small color difference to cater for antialiasing differences and slow opacity fade */
 const COLOR_HIGHLIGHT_ABGR = 0xff0000ff;
+const DIFF_HASH_SPREAD = 0x1337;
 
 const getImageFileNameFromPath = (imagePath: string) => {
   return `${imagePath.split(sep).pop()}`;
@@ -64,7 +65,7 @@ export const diffImagesAsync = async (options: {
   candidateImagePath: string;
   diffImagePath: string;
   threshold: number;
-}): Promise<{ mismatchedPixels: number } | undefined> => {
+}): Promise<{ mismatchedPixels: number; diffHash: number } | undefined> => {
   const { baselineImagePath, candidateImagePath, diffImagePath, threshold } = {
     ...options
   };
@@ -77,7 +78,6 @@ export const diffImagesAsync = async (options: {
   if (baseline.image === undefined && candidate.image === undefined) {
     return Promise.resolve(undefined);
   }
-
   const BRIGHTNESS_DIFFERENCE_THRESHOLD =
     255 * Math.min(1, Math.max(0, threshold || DEFAULT_THRESHOLD));
   let width = 0,
@@ -137,7 +137,9 @@ export const diffImagesAsync = async (options: {
   const lowResHighlightData = new Uint8ClampedArray(lowResWidth * lowResHeight);
 
   // tslint:disable no-bitwise
-  // Diff the images
+  let diffHash = 0;
+  let diffHashStartIndex = 0;
+// Diff the images
   for (let y = 0; y < height; y++) {
     let indexDiff32 = y * width * 3 + width;
 
@@ -185,6 +187,7 @@ export const diffImagesAsync = async (options: {
       let differenceBrightness: number;
       let indexLowRes: number = Math.floor(y / lowResScale) * lowResWidth;
 
+      let diffHashIndex = y * DIFF_HASH_SPREAD;
       for (let x = 0; x < width; x++) {
         const bABGR = diffData32[indexDiff32 - width];
         const cABGR = diffData32[indexDiff32 + width];
@@ -213,6 +216,13 @@ export const diffImagesAsync = async (options: {
           mismatchedPixels++;
           diffData32[indexDiff32] = COLOR_HIGHLIGHT_ABGR;
           lowResHighlightData[indexLowRes | 0]++;
+
+          if (diffHash === 0) {
+            // Bump the diffHash to ensure we get a non-zero diffHash even if only the first pixel changed
+            diffHash += DIFF_HASH_SPREAD;
+            diffHashStartIndex = diffHashIndex;
+          }
+          diffHash += diffHashIndex - diffHashStartIndex;
 
           if ((x + y) & 1) {
             // Output the candidate pixel with red filter to show deletions in the candidate
@@ -264,7 +274,7 @@ export const diffImagesAsync = async (options: {
     diff.pack().pipe(fs.createWriteStream(diffImagePath));
   }
 
-  return Promise.resolve({ mismatchedPixels });
+  return Promise.resolve({ mismatchedPixels, diffHash });
 };
 
 process.on("message", async msg => {
