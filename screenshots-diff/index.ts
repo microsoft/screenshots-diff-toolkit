@@ -151,7 +151,11 @@ export default async (
   } else {
     const foundVisibleDifferences = screenshotsUnchanged.length < countImages;
     const message = foundVisibleDifferences
-      ? `Alright, there was ${screenshotsAdded.length} screenshots added, ${screenshotsRemoved.length} removed, ${screenshotsUnchanged.length} unchanged and ${screenshotsChanged.length} with visible differences. But are they regressions or expected changes ?`
+      ? `Alright, there was ${screenshotsAdded.length} screenshots added, ${
+          screenshotsRemoved.length
+        } removed, ${screenshotsUnchanged.length} unchanged and ${
+          screenshotsChanged.length
+        } with visible differences. But are they regressions or expected changes ?`
       : "Great! There are no visible difference between the two sets of screenshots.";
 
     const formatedResults = formatAndStoreResults(
@@ -226,9 +230,10 @@ const updateProgressReport = (mismatchedPixels: number, count: number) => {
   }
 
   log(
-    ANSI_ESCAPES.restoreCursorPosition + ANSI_ESCAPES.clearLine +
-    `Processed ${countProcessed +
-      1}/${count}\t// ${countUnchanged} unchanged + ${countChanged} changed + ${countAdded} added + ${countRemoved} removed`
+    ANSI_ESCAPES.restoreCursorPosition +
+      ANSI_ESCAPES.clearLine +
+      `Processed ${countProcessed +
+        1}/${count}\t// ${countUnchanged} unchanged + ${countChanged} changed + ${countAdded} added + ${countRemoved} removed`
   );
   countProcessed++;
 };

@@ -11,48 +11,52 @@ declare type ImageAndTestInformation = {
 
 const COLOR_COMPONENTS = 4; /* for the RGBA components */
 const DEFAULT_THRESHOLD = 0.03; /* Allow small color difference to cater for antialiasing differences and slow opacity fade */
-//const BRIGHTNESS_DIFFERENCE_THRESHOLD = 255 * DEFAULT_THRESHOLD;
 const COLOR_HIGHLIGHT_ABGR = 0xff0000ff;
 
 const getImageFileNameFromPath = (imagePath: string) => {
   return `${imagePath.split(sep).pop()}`;
 };
 
-const getImageAndTestInformation = (
+const getImageAndTestInformation = async (
   imagePath: string
-): ImageAndTestInformation => {
-  const imageAndTestInformation: ImageAndTestInformation = {};
-  if (fs.existsSync(imagePath)) {
-    const jsonPath = imagePath.replace(/\..+$/i, ".json");
-    if (fs.existsSync(jsonPath)) {
-      imageAndTestInformation.info = JSON.parse(
-        fs.readFileSync(jsonPath, { encoding: "utf-8" })
-      ) as TestInformation;
+): Promise<ImageAndTestInformation> => {
+  return new Promise(async resolve => {
+    const imageAndTestInformation: ImageAndTestInformation = {};
+    if (fs.existsSync(imagePath)) {
+      const jsonPath = imagePath.replace(/\..+$/i, ".json");
+      if (fs.existsSync(jsonPath)) {
+        imageAndTestInformation.info = JSON.parse(
+          fs.readFileSync(jsonPath, { encoding: "utf-8" })
+        ) as TestInformation;
+      }
+
+      const isPNG = imagePath.endsWith(".png");
+      imageAndTestInformation.image = isPNG
+        ? await new Promise(resolve => {
+            const image = new PNG();
+            fs.createReadStream(imagePath)
+              .pipe(image)
+              .on("parsed", () => resolve(image));
+          })
+        : decode(fs.readFileSync(imagePath));
+
+      if (!imageAndTestInformation.info && imageAndTestInformation.image) {
+        const imageFileName = getImageFileNameFromPath(imagePath);
+        imageAndTestInformation.info = {
+          name: imageFileName,
+          viewport: {
+            x: 0,
+            y: 0,
+            width: imageAndTestInformation.image.width,
+            height: imageAndTestInformation.image.height,
+            scale: 1
+          }
+        };
+      }
     }
 
-    const buffer = fs.readFileSync(imagePath);
-
-    const isPNG = imagePath.endsWith(".png");
-    imageAndTestInformation.image = isPNG
-      ? PNG.sync.read(buffer)
-      : decode(buffer);
-
-    if (!imageAndTestInformation.info) {
-      const imageFileName = getImageFileNameFromPath(imagePath);
-      imageAndTestInformation.info = {
-        name: imageFileName,
-        viewport: {
-          x: 0,
-          y: 0,
-          width: imageAndTestInformation.image.width,
-          height: imageAndTestInformation.image.height,
-          scale: 1
-        }
-      };
-    }
-  }
-
-  return imageAndTestInformation;
+    resolve(imageAndTestInformation);
+  });
 };
 
 export const diffImagesAsync = async (options: {
@@ -64,8 +68,10 @@ export const diffImagesAsync = async (options: {
   const { baselineImagePath, candidateImagePath, diffImagePath, threshold } = {
     ...options
   };
-  const baseline = getImageAndTestInformation(baselineImagePath);
-  const candidate = getImageAndTestInformation(candidateImagePath);
+  const [baseline, candidate] = await Promise.all([
+    getImageAndTestInformation(baselineImagePath),
+    getImageAndTestInformation(candidateImagePath)
+  ]);
 
   // Skip if there are no valid images
   if (baseline.image === undefined && candidate.image === undefined) {
@@ -255,8 +261,7 @@ export const diffImagesAsync = async (options: {
   // tslint:enable no-bitwise
 
   if (mismatchedPixels !== 0) {
-    const buffer = PNG.sync.write(diff);
-    fs.writeFileSync(diffImagePath, buffer);
+    diff.pack().pipe(fs.createWriteStream(diffImagePath));
   }
 
   return Promise.resolve({ mismatchedPixels });
