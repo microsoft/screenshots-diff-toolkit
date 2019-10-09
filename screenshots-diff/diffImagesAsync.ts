@@ -31,15 +31,15 @@ const getImageAndTestInformation = async (
         ) as TestInformation;
       }
 
-      const isPNG = imagePath.endsWith(".png");
-      imageAndTestInformation.image = isPNG
-        ? await new Promise(resolve => {
-            const image = new PNG();
-            fs.createReadStream(imagePath)
-              .pipe(image)
-              .on("parsed", () => resolve(image));
-          })
-        : decode(fs.readFileSync(imagePath));
+      try {
+        const isPNG = imagePath.endsWith(".png");
+        imageAndTestInformation.image = isPNG
+          ? await decodePngImage(imagePath)
+          : decode(fs.readFileSync(imagePath));
+      } catch (imageDecodeError) {
+        // if the image is corrupted then PNG/JPG image package fails to decode and throws error
+        imageAndTestInformation.image = undefined;
+      }
 
       if (!imageAndTestInformation.info && imageAndTestInformation.image) {
         const imageFileName = getImageFileNameFromPath(imagePath);
@@ -276,6 +276,19 @@ export const diffImagesAsync = async (options: {
 
   return Promise.resolve({ mismatchedPixels, diffHash });
 };
+
+async function decodePngImage(imagePath: string): Promise<PNG | undefined> {
+  return new Promise(resolve => {
+    const image = new PNG();
+    fs.createReadStream(imagePath)
+      .pipe(image)
+      .on("parsed", () => resolve(image))
+      .on("error", pngDecodeError => {
+        console.log("decodePngImage Error: " + pngDecodeError);
+        resolve(undefined);
+      });
+  });
+}
 
 process.on("message", async msg => {
   const diffResult = await diffImagesAsync({
