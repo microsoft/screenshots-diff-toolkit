@@ -1,3 +1,4 @@
+[![Version](https://img.shields.io/npm/v/screenshots-diff.svg?colorB=green)](https://www.npmjs.com/package/screenshots-diff)
 
 # Contributing
 
