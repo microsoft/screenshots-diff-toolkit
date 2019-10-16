@@ -62,10 +62,6 @@ export default async (
     candidatePath
   );
   const countImages = screenshotFileNames.length;
-  if (countImages > 0) {
-    // Store cursor position to update the progress in the console
-    console.log(ANSI_ESCAPES.saveCursorPosition);
-  }
 
   let screenshotFileNameIndex = 0;
   const screenshotsAdded: string[] = [];
@@ -93,7 +89,8 @@ export default async (
             // Listen to message ONCE to resolveAfterThisImage
             diffImagesAsyncProcess.once(
               "message",
-              (msg?: { mismatchedPixels: number; diffHash: number }) => resolveAfterThisImage(msg)
+              (msg?: { mismatchedPixels: number; diffHash: number }) =>
+                resolveAfterThisImage(msg)
             );
             // Send message to the diffImagesAsyncProcess for this image
             diffImagesAsyncProcess.send(options);
@@ -153,11 +150,7 @@ export default async (
   } else {
     const foundVisibleDifferences = screenshotsUnchanged.length < countImages;
     const message = foundVisibleDifferences
-      ? `Alright, there was ${screenshotsAdded.length} screenshots added, ${
-          screenshotsRemoved.length
-        } removed, ${screenshotsUnchanged.length} unchanged and ${
-          screenshotsChanged.length
-        } with visible differences. But are they regressions or expected changes ?`
+      ? `Alright, there was ${screenshotsAdded.length} screenshots added, ${screenshotsRemoved.length} removed, ${screenshotsUnchanged.length} unchanged and ${screenshotsChanged.length} with visible differences. But are they regressions or expected changes ?`
       : "Great! There are no visible difference between the two sets of screenshots.";
 
     const formatedResults = formatAndStoreResults(
@@ -231,13 +224,10 @@ const updateProgressReport = (mismatchedPixels: number, count: number) => {
     countUnchanged++;
   }
 
-  log(
-    ANSI_ESCAPES.restoreCursorPosition +
-      ANSI_ESCAPES.clearLine +
-      `Processed ${countProcessed +
-        1}/${count}\t// ${countUnchanged} unchanged + ${countChanged} changed + ${countAdded} added + ${countRemoved} removed`
-  );
   countProcessed++;
+  log(
+    `${ANSI_ESCAPES.escape}1A${ANSI_ESCAPES.clearLine}Processed ${countProcessed}/${count}\t// ${countUnchanged} unchanged + ${countChanged} changed + ${countAdded} added + ${countRemoved} removed`
+  );
 };
 
 const formatAndStoreResults = (
