@@ -134,7 +134,7 @@ export default async (
     const nodeLocation = process.argv[0];
     for (let i = 0; i < NUMBER_OF_CORES; i++) {
       diffImagesAsyncProcesses.push(
-        child_process.spawn(nodeLocation, [join(__dirname, "diffImagesAsync.js")], { stdio: ["pipe", "pipe", "pipe", "ipc"] });
+        child_process.spawn(nodeLocation, [join(__dirname, "diffImagesAsync.js")], { stdio: ["pipe", "pipe", "pipe", "ipc"] })
       );
     }
 
