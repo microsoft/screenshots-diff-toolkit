@@ -271,10 +271,18 @@ export const diffImagesAsync = async (options: {
   // tslint:enable no-bitwise
 
   if (mismatchedPixels !== 0) {
-    diff.pack().pipe(fs.createWriteStream(diffImagePath));
-  }
+    return new Promise((resolve) => {
+      const diffImageFileSteam = fs.createWriteStream(diffImagePath);
+      diff.pack().pipe(diffImageFileSteam);
 
-  return Promise.resolve({ mismatchedPixels, diffHash });
+      // Only resolve once we're done writing the image
+      diffImageFileSteam.on("close", () => {
+        resolve({ mismatchedPixels, diffHash });
+      })
+    });
+  } else {
+    return Promise.resolve({ mismatchedPixels, diffHash });
+  }
 };
 
 async function decodePngImage(imagePath: string): Promise<PNG | undefined> {
