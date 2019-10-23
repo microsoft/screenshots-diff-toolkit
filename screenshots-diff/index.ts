@@ -1,6 +1,6 @@
 import * as child_process from "child_process";
 import * as fs from "fs";
-import { sep } from "path";
+import { sep, join } from "path";
 import { diffImagesAsync } from "./diffImagesAsync";
 import {
   ANSI_ESCAPES,
@@ -129,12 +129,12 @@ export default async (
     await diffImages();
   } else {
     // create pool of diffImagesAsyncProcesses to process all the images
-    const diffImagesAsyncProcesses: child_process.ChildProcess[] = [];
+    const diffImagesAsyncProcesses: child_process.ChildProcess[] = []
+    logInfo(`Diffing images using ${NUMBER_OF_CORES} processes`);
+    const nodeLocation = process.argv[0];
     for (let i = 0; i < NUMBER_OF_CORES; i++) {
       diffImagesAsyncProcesses.push(
-        child_process.fork("./lib/diffImagesAsync", [], {
-          silent: true
-        })
+        child_process.spawn(nodeLocation, [join(__dirname, "diffImagesAsync.js")], { stdio: ["pipe", "pipe", "pipe", "ipc"] })
       );
     }
 
