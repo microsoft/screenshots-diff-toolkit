@@ -141,38 +141,28 @@ export default async (
     await Promise.all(diffImagesAsyncProcesses.map(diffImages));
   }
 
-  if (screenshotsUnchanged.length === 0) {
-    logError(
-      highlight(
-        "  The tests didn't seem to run.\n  See previous errors for more context"
-      )
-    );
+  const foundVisibleDifferences = screenshotsUnchanged.length < countImages;
+  const message = foundVisibleDifferences
+    ? `Alright, there was ${screenshotsAdded.length} screenshots added, ${screenshotsRemoved.length} removed, ${screenshotsUnchanged.length} unchanged and ${screenshotsChanged.length} with visible differences. But are they regressions or expected changes ?`
+    : "Great! There are no visible difference between the two sets of screenshots.";
+
+  const formatedResults = formatAndStoreResults(
+    baselinePath,
+    candidatePath,
+    diffPath,
+    countImages,
+    screenshotsAdded,
+    screenshotsRemoved,
+    screenshotsChanged,
+    message
+  );
+
+  if (foundVisibleDifferences) {
+    logWarning(highlight(message));
   } else {
-    const foundVisibleDifferences = screenshotsUnchanged.length < countImages;
-    const message = foundVisibleDifferences
-      ? `Alright, there was ${screenshotsAdded.length} screenshots added, ${screenshotsRemoved.length} removed, ${screenshotsUnchanged.length} unchanged and ${screenshotsChanged.length} with visible differences. But are they regressions or expected changes ?`
-      : "Great! There are no visible difference between the two sets of screenshots.";
-
-    const formatedResults = formatAndStoreResults(
-      baselinePath,
-      candidatePath,
-      diffPath,
-      countImages,
-      screenshotsAdded,
-      screenshotsRemoved,
-      screenshotsChanged,
-      message
-    );
-
-    if (foundVisibleDifferences) {
-      logWarning(highlight(message));
-    } else {
-      logSuccess(highlight(message));
-    }
-    return formatedResults;
+    logSuccess(highlight(message));
   }
-
-  return;
+  return formatedResults;
 };
 
 const getScreenshotFileNames = (
