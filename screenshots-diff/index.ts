@@ -142,9 +142,7 @@ export default async (
   }
 
   const foundVisibleDifferences = screenshotsUnchanged.length < countImages;
-  const message = foundVisibleDifferences
-    ? `Alright, there was ${screenshotsAdded.length} screenshots added, ${screenshotsRemoved.length} removed, ${screenshotsUnchanged.length} unchanged and ${screenshotsChanged.length} with visible differences. But are they regressions or expected changes ?`
-    : "Great! There are no visible difference between the two sets of screenshots.";
+  const message = `There were ${screenshotsAdded.length} screenshot(s) added, ${screenshotsRemoved.length} removed, ${screenshotsChanged.length} with visible differences and ${screenshotsUnchanged.length} unchanged.`
 
   const formatedResults = formatAndStoreResults(
     baselinePath,
